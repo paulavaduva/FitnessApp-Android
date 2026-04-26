@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Preview
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
@@ -46,8 +47,8 @@ fun MainScreen() {
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = BackgroundDark, // Culoarea ta din Color.kt
-                contentColor = EmeraldGreen      // Verdele din mockup
+                containerColor = BackgroundDark,
+                contentColor = EmeraldGreen
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route

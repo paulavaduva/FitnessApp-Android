@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.pow
@@ -223,4 +224,10 @@ fun ProfileTextField(label: String, value: String, onValueChange: (String) -> Un
             focusedBorderColor = Color(0xFF4ADE80)
         )
     )
+}
+
+@Preview
+@Composable
+fun PreviewProfile() {
+    ProfileScreen()
 }

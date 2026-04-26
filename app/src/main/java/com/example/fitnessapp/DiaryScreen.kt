@@ -205,3 +205,9 @@ fun MealItemRow(meal: Meal, surfaceColor: Color, accentGreen: Color, textColor: 
         }
     }
 }
+
+@Preview
+@Composable
+fun PreviewDiary() {
+    DiaryScreen()
+}

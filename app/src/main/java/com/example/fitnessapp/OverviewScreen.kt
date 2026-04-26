@@ -279,7 +279,6 @@ fun NutrientCard(modifier: Modifier, name: String, value: String, progress: Floa
 
 @Composable
 fun WaterTrackerCard() {
-    // Starea pentru numarul de pahare (plecam de la 6, ca in mockup)
     var waterGlasses by remember { mutableStateOf(6) }
     val goal = 8
 
@@ -328,7 +327,6 @@ fun WaterTrackerCard() {
                 )
             }
 
-            // Butonul de adaugare
             IconButton(
                 onClick = {
                     waterGlasses++
@@ -353,7 +351,7 @@ fun SetGoalButton(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp) // Spațiu față de margini
+            .padding(horizontal = 20.dp, vertical = 10.dp)
             .height(56.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = EmeraldGreen,
@@ -384,7 +382,7 @@ fun EditGoalsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardGrey, // Griul tău închis
+        containerColor = CardGrey,
         title = {
             Text("Set New Goals", color = TextWhite, fontWeight = FontWeight.Bold)
         },
