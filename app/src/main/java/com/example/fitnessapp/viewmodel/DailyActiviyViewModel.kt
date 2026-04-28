@@ -1,5 +1,6 @@
 package com.example.fitnessapp.viewmodel
 
+import android.app.Application
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -8,7 +9,15 @@ import android.hardware.SensorManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.fitnessapp.data.MealDatabase
+import com.example.fitnessapp.data.WaterEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import java.util.Calendar
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.fitnessapp.data.GoalDao
@@ -20,13 +29,14 @@ import kotlinx.coroutines.launch
 class DailyActivityViewModel(
     private val goalDao: GoalDao,
     private val stepDao: StepDao,
+    private val waterDao: WaterDao,
     context: Context
 ) : ViewModel(), SensorEventListener {
     var currentSteps by mutableStateOf(0)
     var stepGoal by mutableStateOf(1800)
     var waterGlasses by mutableStateOf(6)
     var waterGoal by mutableStateOf(8)
-    var userName by mutableStateOf("Paula")
+    //var userName by mutableStateOf("Paula")
     var kcalGoal by mutableStateOf(2000.0)
     var proteinGoal by mutableStateOf(150.0)
     var carbGoal by mutableStateOf(200.0)
@@ -131,21 +141,45 @@ class DailyActivityViewModel(
         return sdf.format(java.util.Date())
     }
 
+    private val startOfDay: Long
+        get() = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+    val todayWater: Flow<Int?> = waterDao.getTodayWater(startOfDay)
     fun addWater() {
-        if (waterGlasses < 20) {
-            waterGlasses++
+        viewModelScope.launch(Dispatchers.IO) {
+            val todayRecord = waterDao.getTodayRecord(startOfDay)
+
+            if (todayRecord != null) {
+                val updatedRecord = todayRecord.copy(
+                    glasses = todayRecord.glasses + 1
+                )
+                waterDao.updateWater(updatedRecord)
+            } else {
+                waterDao.insertWater(
+                    WaterEntity(
+                        glasses = 1,
+                        date = System.currentTimeMillis()
+                    )
+                )
+            }
         }
     }
 
     class DailyActivityViewModelFactory(
         private val goalDao: GoalDao,
         private val stepDao: StepDao,
+        private val waterDao: WaterDao,
         private val context: Context
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(DailyActivityViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return DailyActivityViewModel(goalDao, stepDao, context) as T
+                return DailyActivityViewModel(goalDao, stepDao, waterDao, context) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
