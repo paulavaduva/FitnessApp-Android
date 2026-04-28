@@ -6,11 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.launch
 
-@Database(entities = [MealEntity::class, FoodEntity::class], version = 2, exportSchema = false)
+@Database(entities = [MealEntity::class, FoodEntity::class, StepEntity::class, GoalEntity::class], version = 4, exportSchema = false)
 abstract class MealDatabase : RoomDatabase() {
 
     abstract fun mealDao(): MealDao
     abstract fun foodDao(): FoodDao
+    abstract fun stepDao(): StepDao
+    abstract fun goalDao(): GoalDao
 
     companion object {
         @Volatile
