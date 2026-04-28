@@ -24,7 +24,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnessapp.data.MealDatabase
+import com.example.fitnessapp.viewmodel.MealViewModel
+import com.example.fitnessapp.viewmodel.MealViewModelFactory
 import com.example.fitnessapp.ui.theme.*
 
 class MainActivity : ComponentActivity() {
@@ -39,10 +46,22 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview
+//@Preview
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val database = remember {
+        MealDatabase.getDatabase(context, scope)
+    }
+    val mealViewModel: MealViewModel = viewModel(
+        factory = MealViewModelFactory(
+            database.mealDao(),
+            database.foodDao()
+        )
+    )
 
     Scaffold(
         bottomBar = {
@@ -89,8 +108,8 @@ fun MainScreen() {
             startDestination = Screen.Overview.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Overview.route) { OverviewScreen() }
-            composable(Screen.Diary.route) { DiaryScreen() }
+            composable(Screen.Overview.route) { OverviewScreen(viewModel = mealViewModel) }
+            composable(Screen.Diary.route) { DiaryScreen(viewModel = mealViewModel) }
             composable(Screen.Statistics.route) { StatisticsScreen() }
             composable(Screen.Profile.route) { ProfileScreen() }
         }

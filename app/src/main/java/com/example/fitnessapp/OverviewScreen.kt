@@ -30,20 +30,30 @@ import com.example.fitnessapp.ui.theme.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.text.input.KeyboardType
+import com.example.fitnessapp.viewmodel.MealViewModel
+import java.util.Calendar
 
 
-@Preview
 @Composable
-fun OverviewScreen() {
+fun OverviewScreen(viewModel: MealViewModel) {
     val scrollState = rememberScrollState()
     var showDialog by remember { mutableStateOf(false) }
 
-    var stepGoal by remember { mutableStateOf("1800") }
-    var kcalGoal by remember { mutableStateOf("1800") }
-    var carbGoal by remember { mutableStateOf("180") }
-    var proteinGoal by remember { mutableStateOf("135") }
-    var fatGoal by remember { mutableStateOf("60") }
-    var waterGoal by remember { mutableStateOf("8") }
+    val allMeals by viewModel.allMeals.collectAsState()
+
+    val todayMeals = remember(allMeals) {
+        val today = Calendar.getInstance()
+        allMeals.filter {
+            val mealDate = Calendar.getInstance().apply { timeInMillis = it.dateAdded }
+            mealDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                    mealDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+        }
+    }
+
+    val consumedKcal = todayMeals.sumOf { it.calories * it.quantity }.toFloat()
+    val consumedCarbs = todayMeals.sumOf { it.carbs * it.quantity }.toFloat()
+    val consumedProtein = todayMeals.sumOf { it.protein * it.quantity }.toFloat()
+    val consumedFat = todayMeals.sumOf { it.fat * it.quantity }.toFloat()
 
     Scaffold(
         containerColor = BackgroundDark
@@ -52,23 +62,25 @@ fun OverviewScreen() {
             EditGoalsDialog(
                 onDismiss = { showDialog = false },
                 onSave = { steps, kcal, carbs, protein, fat, water ->
-                    if (steps.isNotEmpty()) stepGoal = steps
-                    if (kcal.isNotEmpty()) kcalGoal = kcal
-                    if (carbs.isNotEmpty()) carbGoal = carbs
-                    if (protein.isNotEmpty()) proteinGoal = protein
-                    if (fat.isNotEmpty()) fatGoal = fat
-                    if(water.isNotEmpty()) waterGoal = water
-
+                    viewModel.updateGoals(
+                        kcal = kcal.toDoubleOrNull() ?: viewModel.kcalGoal,
+                        protein = protein.toDoubleOrNull() ?: viewModel.proteinGoal,
+                        carbs = carbs.toDoubleOrNull() ?: viewModel.carbGoal,
+                        fat = fat.toDoubleOrNull() ?: viewModel.fatGoal,
+                        steps = steps.toIntOrNull() ?: viewModel.stepGoal,
+                        water = water.toIntOrNull() ?: viewModel.waterGoal
+                    )
                     showDialog = false
                 }
             )
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(scrollState)
-                .background(BackgroundDark) // Culoarea ta din Color.kt
+                .background(BackgroundDark)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -79,18 +91,21 @@ fun OverviewScreen() {
             ProgressCircle(
                 label = "steps",
                 current = "1250",
-                goal = "1800",
-                size = 190.dp,      // Dimensiune considerabil mai mare
-                strokeWidth = 16.dp // Linie mai groasă pentru impact vizual
+                goal = viewModel.stepGoal.toString(),
+                progress = 1250f / viewModel.stepGoal.toFloat(),
+                size = 190.dp,
+                strokeWidth = 16.dp
             )
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            CaloriesCard()
+            CaloriesCard(
+                consumed = consumedKcal.toInt(),
+                goal = viewModel.kcalGoal.toInt()
+            )
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // --- 3. CARDURI NUTRIENȚI ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -98,33 +113,32 @@ fun OverviewScreen() {
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Carb",
-                    value = "54/180g",
-                    progress = 0.3f
+                    value = "${consumedCarbs.toInt()}/${viewModel.carbGoal.toInt()}g",
+                    progress = if (viewModel.carbGoal > 0) (consumedCarbs / viewModel.carbGoal.toFloat()) else 0f
                 )
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Protein",
-                    value = "110/135g",
-                    progress = 0.8f
+                    value = "${consumedProtein.toInt()}/${viewModel.proteinGoal.toInt()}g",
+                    progress = if (viewModel.proteinGoal > 0) (consumedProtein / viewModel.proteinGoal.toFloat()) else 0f
                 )
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Fat",
-                    value = "13/60g",
-                    progress = 0.2f
+                    value = "${consumedFat.toInt()}/${viewModel.fatGoal.toInt()}g",
+                    progress = if (viewModel.fatGoal > 0) (consumedFat / viewModel.fatGoal.toFloat()) else 0f
                 )
             }
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            WaterTrackerCard()
+            WaterTrackerCard(goal = viewModel.waterGoal)
 
             Spacer(modifier = Modifier.height(15.dp))
 
             SetGoalButton(onClick = { showDialog = true })
             Spacer(modifier = Modifier.height(20.dp))
         }
-
     }
 }
 
@@ -150,6 +164,7 @@ fun ProgressCircle(
     label: String,
     current: String,
     goal: String,
+    progress: Float,
     size: Dp,
     strokeWidth: Dp
 ) {
@@ -166,7 +181,7 @@ fun ProgressCircle(
             )
             // Cercul de progres (verde)
             CircularProgressIndicator(
-            progress = { 0.7f },
+            progress = { progress.coerceIn(0f, 1f) },
             modifier = Modifier.size(size),
             color = EmeraldGreen,
             strokeWidth = strokeWidth,
@@ -201,40 +216,33 @@ fun ProgressCircle(
 }
 
 @Composable
-fun CaloriesCard(){
+fun CaloriesCard(consumed: Int, goal: Int) {
+    val remaining = goal - consumed
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(80.dp),
+        modifier = Modifier.fillMaxWidth().height(80.dp),
         colors = CardDefaults.cardColors(containerColor = CardGrey),
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically){
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = "Calories", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-
                     Spacer(modifier = Modifier.width(8.dp))
-
-                    Icon(
-                        imageVector = Icons.Default.LocalFireDepartment,
-                        contentDescription = null,
-                        tint = EmeraldGreen,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    Icon(imageVector = Icons.Default.LocalFireDepartment, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(22.dp))
                 }
-
-
-                Text(text = "Remaining: 550 kcal", color = TextLightGrey, fontSize = 14.sp)
+                Text(
+                    text = if (remaining >= 0) "Remaining: $remaining kcal" else "Over limit: ${-remaining} kcal",
+                    color = if (remaining >= 0) TextLightGrey else Color.Red,
+                    fontSize = 14.sp
+                )
             }
             Text(
-                text = "1250 / 1800 kcal",
+                text = "$consumed / $goal kcal",
                 color = EmeraldGreen,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
@@ -278,9 +286,10 @@ fun NutrientCard(modifier: Modifier, name: String, value: String, progress: Floa
 }
 
 @Composable
-fun WaterTrackerCard() {
-    var waterGlasses by remember { mutableStateOf(6) }
-    val goal = 8
+fun WaterTrackerCard(goal: Int) {
+    //var waterGlasses by remember { mutableStateOf(6) }
+    //val goal = 8
+    var waterGlasses by remember { mutableStateOf(0) }
 
     Card(
         modifier = Modifier
