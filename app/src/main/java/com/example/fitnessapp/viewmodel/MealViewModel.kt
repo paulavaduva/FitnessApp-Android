@@ -29,16 +29,16 @@ class MealViewModel(private val mealDao: MealDao, private val foodDao: FoodDao) 
     var proteinGoal by mutableStateOf(150.0)
     var carbGoal by mutableStateOf(200.0)
     var fatGoal by mutableStateOf(70.0)
-    var stepGoal by mutableStateOf(10000)
-    var waterGoal by mutableStateOf(8)
+//    var stepGoal by mutableStateOf(10000)
+//    var waterGoal by mutableStateOf(8)
 
-    fun updateGoals(kcal: Double, protein: Double, carbs: Double, fat: Double, steps: Int, water: Int) {
+    fun updateGoals(kcal: Double, protein: Double, carbs: Double, fat: Double) {
         kcalGoal = kcal
         proteinGoal = protein
         carbGoal = carbs
         fatGoal = fat
-        stepGoal = steps
-        waterGoal = water
+//        stepGoal = steps
+//        waterGoal = water
     }
 
     fun getTodayMeals(meals: List<MealEntity>): List<MealEntity> {

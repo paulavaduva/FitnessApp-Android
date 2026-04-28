@@ -21,43 +21,46 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.pow
-import kotlin.math.roundToInt
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
+import com.example.fitnessapp.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
     val backgroundColor = Color(0xFF13151A)
     val surfaceColor = Color(0xFF1E2026)
     val accentGreen = Color(0xFF4ADE80)
     val textColor = Color.White
     val textSecondary = Color.Gray
 
-    var heightCm by remember { mutableStateOf("174") }
-    var weightKg by remember { mutableStateOf("65") }
-    var age by remember { mutableStateOf("22") }
-    var gender by remember { mutableStateOf("Female") }
+//    var heightCm by remember { mutableStateOf("174") }
+//    var weightKg by remember { mutableStateOf("65") }
+//    var age by remember { mutableStateOf("22") }
+//    var gender by remember { mutableStateOf("Female") }
     var showEditDialog by remember { mutableStateOf(false) }
 
-    val h = heightCm.toFloatOrNull() ?: 0f
-    val w = weightKg.toFloatOrNull() ?: 0f
-    val a = age.toIntOrNull() ?: 0
-
-    val bmiValue = if (h > 0 && w > 0) {
-        val bmi = w / (h / 100f).pow(2)
-        (bmi * 10).roundToInt() / 10.0
-    } else 0.0
-
-    val bmiCategory = when {
-        bmiValue < 18.5 -> "Underweight"
-        bmiValue in 18.5..24.9 -> "Healthy Weight"
-        bmiValue in 25.0..29.9 -> "Overweight"
-        else -> "Obese"
-    }
-
-    val bmrValue = if (h > 0 && w > 0 && a > 0) {
-        (10 * w + 6.25 * h - 5 * a - 161).roundToInt()
-    } else 0
+//    val h = heightCm.toFloatOrNull() ?: 0f
+//    val w = weightKg.toFloatOrNull() ?: 0f
+//    val a = age.toIntOrNull() ?: 0
+//
+//    val bmiValue = if (h > 0 && w > 0) {
+//        val bmi = w / (h / 100f).pow(2)
+//        (bmi * 10).roundToInt() / 10.0
+//    } else 0.0
+//
+//    val bmiCategory = when {
+//        bmiValue < 18.5 -> "Underweight"
+//        bmiValue in 18.5..24.9 -> "Healthy Weight"
+//        bmiValue in 25.0..29.9 -> "Overweight"
+//        else -> "Obese"
+//    }
+//
+//    val bmrValue = if (h > 0 && w > 0 && a > 0) {
+//        (10 * w + 6.25 * h - 5 * a - 161).roundToInt()
+//    } else 0
 
     Box(
         modifier = Modifier
@@ -81,22 +84,22 @@ fun ProfileScreen() {
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SmallStatCard(
-                    Modifier.weight(1f), "Height", "$heightCm cm",
+                    Modifier.weight(1f), "Height", "${profileViewModel.heightCm} cm",
                     Icons.Default.Height, surfaceColor, textColor, textSecondary, accentGreen
                 )
                 SmallStatCard(
-                    Modifier.weight(1f), "Weight", "$weightKg kg",
+                    Modifier.weight(1f), "Weight", "${profileViewModel.weightKg} kg",
                     Icons.Default.MonitorWeight, surfaceColor, textColor, textSecondary, accentGreen
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SmallStatCard(
-                    Modifier.weight(1f), "Age", "$age yo",
+                    Modifier.weight(1f), "Age", "${profileViewModel.age} yo",
                     Icons.Default.CalendarToday, surfaceColor, textColor, textSecondary, accentGreen
                 )
                 SmallStatCard(
-                    Modifier.weight(1f), "Gender", gender,
+                    Modifier.weight(1f), "Gender", profileViewModel.gender,
                     Icons.Default.Person, surfaceColor, textColor, textSecondary, accentGreen
                 )
             }
@@ -105,8 +108,8 @@ fun ProfileScreen() {
 
             LargeStatCard(
                 title = "Your BMI",
-                value = bmiValue.toString(),
-                subtitle = bmiCategory,
+                value = profileViewModel.bmiValue.toString(),
+                subtitle = profileViewModel.bmiCategory,
                 icon = Icons.Default.Favorite,
                 accentColor = accentGreen,
                 surfaceColor = surfaceColor,
@@ -118,7 +121,7 @@ fun ProfileScreen() {
 
             LargeStatCard(
                 title = "Your BMR",
-                value = bmrValue.toString(),
+                value = profileViewModel.bmrValue.toString(),
                 subtitle = "Calories / day",
                 icon = Icons.Default.LocalFireDepartment,
                 accentColor = accentGreen,
@@ -143,9 +146,13 @@ fun ProfileScreen() {
     }
 
     if (showEditDialog) {
-        var tempHeight by remember { mutableStateOf(heightCm) }
-        var tempWeight by remember { mutableStateOf(weightKg) }
-        var tempAge by remember { mutableStateOf(age) }
+        var tempHeight by remember { mutableStateOf(profileViewModel.heightCm) }
+        var tempWeight by remember { mutableStateOf(profileViewModel.weightKg) }
+        var tempAge by remember { mutableStateOf(profileViewModel.age) }
+        var tempGender by remember { mutableStateOf(profileViewModel.gender)}
+
+        var expanded by remember { mutableStateOf(false) }
+        val genderOptions = listOf("Male", "Female")
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
@@ -156,14 +163,48 @@ fun ProfileScreen() {
                     ProfileTextField("Height (cm)", tempHeight) { tempHeight = it }
                     ProfileTextField("Weight (kg)", tempWeight) { tempWeight = it }
                     ProfileTextField("Age", tempAge) { tempAge = it }
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextField(
+                            value = tempGender,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Gender") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF4ADE80),
+                                unfocusedBorderColor = Color.Gray,
+                                focusedLabelColor = Color(0xFF4ADE80)
+                            ),
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(Color(0xFF1E2026))
+                        ) {
+                            genderOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(text = option, color = Color.White) },
+                                    onClick = {
+                                        tempGender = option
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        heightCm = tempHeight
-                        weightKg = tempWeight
-                        age = tempAge
+                        profileViewModel.updateProfile(tempHeight, tempWeight, tempAge, tempGender)
                         showEditDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = accentGreen)
