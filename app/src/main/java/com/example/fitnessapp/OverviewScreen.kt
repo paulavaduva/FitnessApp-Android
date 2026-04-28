@@ -3,7 +3,6 @@ package com.example.fitnessapp
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -28,16 +27,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fitnessapp.ui.theme.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.input.pointer.motionEventSpy
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.fitnessapp.viewmodel.DailyActivityViewModel
 import com.example.fitnessapp.viewmodel.MealViewModel
 import java.util.Calendar
 
 
 @Composable
-fun OverviewScreen(viewModel: MealViewModel) {
+fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: MealViewModel) {
     val scrollState = rememberScrollState()
     var showDialog by remember { mutableStateOf(false) }
+    
+    //    var stepGoal by remember { mutableStateOf("1800") }
+    var kcalGoal by remember { mutableStateOf("1800") }
+    var carbGoal by remember { mutableStateOf("180") }
+    var proteinGoal by remember { mutableStateOf("135") }
+    var fatGoal by remember { mutableStateOf("60") }
+//    var waterGoal by remember { mutableStateOf("8") }
 
     val allMeals by viewModel.allMeals.collectAsState()
 
@@ -60,15 +67,26 @@ fun OverviewScreen(viewModel: MealViewModel) {
     ) { innerPadding ->
         if (showDialog) {
             EditGoalsDialog(
+                initialSteps = dailyVM.stepGoal.toString(),
+                initialWater = dailyVM.waterGoal.toString(),
                 onDismiss = { showDialog = false },
                 onSave = { steps, kcal, carbs, protein, fat, water ->
+                    dailyVM.updateActivityGoals(steps, water)
+
+//                    if (steps.isNotEmpty()) stepGoal = steps
+                    if (kcal.isNotEmpty()) kcalGoal = kcal
+                    if (carbs.isNotEmpty()) carbGoal = carbs
+                    if (protein.isNotEmpty()) proteinGoal = protein
+                    if (fat.isNotEmpty()) fatGoal = fat
+//                    if(water.isNotEmpty()) waterGoal = water
+
                     viewModel.updateGoals(
                         kcal = kcal.toDoubleOrNull() ?: viewModel.kcalGoal,
                         protein = protein.toDoubleOrNull() ?: viewModel.proteinGoal,
                         carbs = carbs.toDoubleOrNull() ?: viewModel.carbGoal,
                         fat = fat.toDoubleOrNull() ?: viewModel.fatGoal,
-                        steps = steps.toIntOrNull() ?: viewModel.stepGoal,
-                        water = water.toIntOrNull() ?: viewModel.waterGoal
+//                        steps = steps.toIntOrNull() ?: viewModel.stepGoal,
+//                        water = water.toIntOrNull() ?: viewModel.waterGoal
                     )
                     showDialog = false
                 }
@@ -84,15 +102,18 @@ fun OverviewScreen(viewModel: MealViewModel) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            HeaderSection()
+            HeaderSection(name = dailyVM.userName)
 
             Spacer(modifier = Modifier.height(40.dp))
 
             ProgressCircle(
                 label = "steps",
-                current = "1250",
-                goal = viewModel.stepGoal.toString(),
-                progress = 1250f / viewModel.stepGoal.toFloat(),
+                current = dailyVM.currentSteps.toString(),
+                goal = dailyVM.stepGoal.toString(),
+                progress = dailyVM.currentSteps.toFloat() / dailyVM.stepGoal,
+//                current = "1250",
+//                goal = viewModel.stepGoal.toString(),
+//                progress = 1250f / viewModel.stepGoal.toFloat(),
                 size = 190.dp,
                 strokeWidth = 16.dp
             )
@@ -132,7 +153,11 @@ fun OverviewScreen(viewModel: MealViewModel) {
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            WaterTrackerCard(goal = viewModel.waterGoal)
+            WaterTrackerCard(
+                current = dailyVM.waterGlasses,
+                goal = dailyVM.waterGoal,
+                onAddClick = { dailyVM.addWater() }
+            )
 
             Spacer(modifier = Modifier.height(15.dp))
 
@@ -143,10 +168,10 @@ fun OverviewScreen(viewModel: MealViewModel) {
 }
 
 @Composable
-fun HeaderSection(){
+fun HeaderSection(name: String){
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Hello, @Name!",
+            text = "Hello, $name!",
             color = TextWhite,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
@@ -170,7 +195,6 @@ fun ProgressCircle(
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
-            // Cercul de fundal (gri)
             CircularProgressIndicator(
             progress = { 1f },
             modifier = Modifier.size(size),
@@ -179,8 +203,8 @@ fun ProgressCircle(
             trackColor = ProgressIndicatorDefaults.circularIndeterminateTrackColor,
             strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
             )
-            // Cercul de progres (verde)
             CircularProgressIndicator(
+//            progress = { progress },
             progress = { progress.coerceIn(0f, 1f) },
             modifier = Modifier.size(size),
             color = EmeraldGreen,
@@ -188,7 +212,6 @@ fun ProgressCircle(
             trackColor = Color.Transparent,
             strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
             )
-            // Textul din mijloc
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = current,
@@ -286,9 +309,7 @@ fun NutrientCard(modifier: Modifier, name: String, value: String, progress: Floa
 }
 
 @Composable
-fun WaterTrackerCard(goal: Int) {
-    //var waterGlasses by remember { mutableStateOf(6) }
-    //val goal = 8
+fun WaterTrackerCard(current: Int, goal: Int, onAddClick: () -> Unit) {
     var waterGlasses by remember { mutableStateOf(0) }
 
     Card(
@@ -329,7 +350,7 @@ fun WaterTrackerCard(goal: Int) {
                 }
 
                 Text(
-                    text = "$waterGlasses / $goal glasses",
+                    text = "$current / $goal glasses",
                     color = TextLightGrey,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(start = 30.dp)
@@ -337,9 +358,7 @@ fun WaterTrackerCard(goal: Int) {
             }
 
             IconButton(
-                onClick = {
-                    waterGlasses++
-                },
+                onClick = onAddClick,
                 modifier = Modifier
                     .background(EmeraldGreen, CircleShape)
                     .size(40.dp)
@@ -379,15 +398,17 @@ fun SetGoalButton(onClick: () -> Unit) {
 
 @Composable
 fun EditGoalsDialog(
+    initialSteps: String,
+    initialWater: String,
     onDismiss: () -> Unit,
     onSave: (String, String, String, String, String, String) -> Unit
 ) {
-    var stepsInput by remember { mutableStateOf("") }
+    var stepsInput by remember { mutableStateOf(initialSteps) }
     var kcalInput by remember { mutableStateOf("") }
     var carbsInput by remember { mutableStateOf("") }
     var proteinInput by remember { mutableStateOf("") }
     var fatInput by remember { mutableStateOf("") }
-    var waterInput by remember { mutableStateOf("") }
+    var waterInput by remember { mutableStateOf(initialWater) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
