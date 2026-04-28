@@ -31,11 +31,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnessapp.viewmodel.DailyActivityViewModel
 import com.example.fitnessapp.viewmodel.MealViewModel
+import com.example.fitnessapp.viewmodel.ProfileViewModel
 import java.util.Calendar
 
 
 @Composable
-fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: MealViewModel) {
+fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: MealViewModel, profileViewModel: ProfileViewModel = viewModel()) {
     val scrollState = rememberScrollState()
     var showDialog by remember { mutableStateOf(false) }
     
@@ -45,6 +46,8 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
     var proteinGoal by remember { mutableStateOf("135") }
     var fatGoal by remember { mutableStateOf("60") }
 //    var waterGoal by remember { mutableStateOf("8") }
+    val consumedWater by dailyVM.todayWater.collectAsState(initial = 0)
+    val userProfile by profileViewModel.userProfile.collectAsState(initial = null)
 
     val allMeals by viewModel.allMeals.collectAsState()
 
@@ -102,7 +105,8 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            HeaderSection(name = dailyVM.userName)
+            val displayName = userProfile?.name ?: "User"
+            HeaderSection(name = if(displayName.isEmpty()) "User" else displayName)
 
             Spacer(modifier = Modifier.height(40.dp))
 
@@ -154,7 +158,7 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
             Spacer(modifier = Modifier.height(15.dp))
 
             WaterTrackerCard(
-                current = dailyVM.waterGlasses,
+                current = consumedWater ?: 0,
                 goal = dailyVM.waterGoal,
                 onAddClick = { dailyVM.addWater() }
             )
@@ -310,7 +314,7 @@ fun NutrientCard(modifier: Modifier, name: String, value: String, progress: Floa
 
 @Composable
 fun WaterTrackerCard(current: Int, goal: Int, onAddClick: () -> Unit) {
-    var waterGlasses by remember { mutableStateOf(0) }
+//    var waterGlasses by remember { mutableStateOf(0) }
 
     Card(
         modifier = Modifier
