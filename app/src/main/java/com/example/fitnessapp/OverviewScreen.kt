@@ -32,7 +32,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnessapp.viewmodel.DailyActivityViewModel
 import com.example.fitnessapp.viewmodel.MealViewModel
 import com.example.fitnessapp.viewmodel.ProfileViewModel
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 
 @Composable
@@ -40,12 +42,6 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
     val scrollState = rememberScrollState()
     var showDialog by remember { mutableStateOf(false) }
     
-    //    var stepGoal by remember { mutableStateOf("1800") }
-    var kcalGoal by remember { mutableStateOf("1800") }
-    var carbGoal by remember { mutableStateOf("180") }
-    var proteinGoal by remember { mutableStateOf("135") }
-    var fatGoal by remember { mutableStateOf("60") }
-//    var waterGoal by remember { mutableStateOf("8") }
     val consumedWater by dailyVM.todayWater.collectAsState(initial = 0)
     val userProfile by profileViewModel.userProfile.collectAsState(initial = null)
 
@@ -72,25 +68,13 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
             EditGoalsDialog(
                 initialSteps = dailyVM.stepGoal.toString(),
                 initialWater = dailyVM.waterGoal.toString(),
+                initialKcal = dailyVM.kcalGoal.toInt().toString(),
+                initialCarbs = dailyVM.carbGoal.toInt().toString(),
+                initialProtein = dailyVM.proteinGoal.toInt().toString(),
+                initialFat = dailyVM.fatGoal.toInt().toString(),
                 onDismiss = { showDialog = false },
                 onSave = { steps, kcal, carbs, protein, fat, water ->
-                    dailyVM.updateActivityGoals(steps, water)
-
-//                    if (steps.isNotEmpty()) stepGoal = steps
-                    if (kcal.isNotEmpty()) kcalGoal = kcal
-                    if (carbs.isNotEmpty()) carbGoal = carbs
-                    if (protein.isNotEmpty()) proteinGoal = protein
-                    if (fat.isNotEmpty()) fatGoal = fat
-//                    if(water.isNotEmpty()) waterGoal = water
-
-                    viewModel.updateGoals(
-                        kcal = kcal.toDoubleOrNull() ?: viewModel.kcalGoal,
-                        protein = protein.toDoubleOrNull() ?: viewModel.proteinGoal,
-                        carbs = carbs.toDoubleOrNull() ?: viewModel.carbGoal,
-                        fat = fat.toDoubleOrNull() ?: viewModel.fatGoal,
-//                        steps = steps.toIntOrNull() ?: viewModel.stepGoal,
-//                        water = water.toIntOrNull() ?: viewModel.waterGoal
-                    )
+                    dailyVM.updateActivityGoals(steps, water, kcal, carbs, protein, fat)
                     showDialog = false
                 }
             )
@@ -115,9 +99,6 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
                 current = dailyVM.currentSteps.toString(),
                 goal = dailyVM.stepGoal.toString(),
                 progress = dailyVM.currentSteps.toFloat() / dailyVM.stepGoal,
-//                current = "1250",
-//                goal = viewModel.stepGoal.toString(),
-//                progress = 1250f / viewModel.stepGoal.toFloat(),
                 size = 190.dp,
                 strokeWidth = 16.dp
             )
@@ -126,7 +107,7 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
 
             CaloriesCard(
                 consumed = consumedKcal.toInt(),
-                goal = viewModel.kcalGoal.toInt()
+                goal = dailyVM.kcalGoal.toInt()
             )
 
             Spacer(modifier = Modifier.height(30.dp))
@@ -138,20 +119,20 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Carb",
-                    value = "${consumedCarbs.toInt()}/${viewModel.carbGoal.toInt()}g",
-                    progress = if (viewModel.carbGoal > 0) (consumedCarbs / viewModel.carbGoal.toFloat()) else 0f
+                    value = "${consumedCarbs.toInt()}/${dailyVM.carbGoal.toInt()}g",
+                    progress = if (dailyVM.carbGoal > 0) (consumedCarbs / dailyVM.carbGoal.toFloat()) else 0f
                 )
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Protein",
-                    value = "${consumedProtein.toInt()}/${viewModel.proteinGoal.toInt()}g",
-                    progress = if (viewModel.proteinGoal > 0) (consumedProtein / viewModel.proteinGoal.toFloat()) else 0f
+                    value = "${consumedProtein.toInt()}/${dailyVM.proteinGoal.toInt()}g",
+                    progress = if (dailyVM.proteinGoal > 0) (consumedProtein / dailyVM.proteinGoal.toFloat()) else 0f
                 )
                 NutrientCard(
                     modifier = Modifier.weight(1f),
                     name = "Fat",
-                    value = "${consumedFat.toInt()}/${viewModel.fatGoal.toInt()}g",
-                    progress = if (viewModel.fatGoal > 0) (consumedFat / viewModel.fatGoal.toFloat()) else 0f
+                    value = "${consumedFat.toInt()}/${dailyVM.fatGoal.toInt()}g",
+                    progress = if (dailyVM.fatGoal > 0) (consumedFat / dailyVM.fatGoal.toFloat()) else 0f
                 )
             }
 
@@ -173,6 +154,7 @@ fun OverviewScreen(dailyVM: DailyActivityViewModel = viewModel(), viewModel: Mea
 
 @Composable
 fun HeaderSection(name: String){
+    val dateText = remember { getDisplayDate() }
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Hello, $name!",
@@ -181,7 +163,7 @@ fun HeaderSection(name: String){
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Monday, June 25",
+            text = dateText,
             color = TextLightGrey,
             fontSize = 16.sp
         )
@@ -314,7 +296,6 @@ fun NutrientCard(modifier: Modifier, name: String, value: String, progress: Floa
 
 @Composable
 fun WaterTrackerCard(current: Int, goal: Int, onAddClick: () -> Unit) {
-//    var waterGlasses by remember { mutableStateOf(0) }
 
     Card(
         modifier = Modifier
@@ -404,14 +385,18 @@ fun SetGoalButton(onClick: () -> Unit) {
 fun EditGoalsDialog(
     initialSteps: String,
     initialWater: String,
+    initialKcal: String,
+    initialCarbs: String,
+    initialProtein: String,
+    initialFat: String,
     onDismiss: () -> Unit,
     onSave: (String, String, String, String, String, String) -> Unit
 ) {
     var stepsInput by remember { mutableStateOf(initialSteps) }
-    var kcalInput by remember { mutableStateOf("") }
-    var carbsInput by remember { mutableStateOf("") }
-    var proteinInput by remember { mutableStateOf("") }
-    var fatInput by remember { mutableStateOf("") }
+    var kcalInput by remember { mutableStateOf(initialKcal) }
+    var carbsInput by remember { mutableStateOf(initialCarbs) }
+    var proteinInput by remember { mutableStateOf(initialProtein) }
+    var fatInput by remember { mutableStateOf(initialFat) }
     var waterInput by remember { mutableStateOf(initialWater) }
 
     AlertDialog(
@@ -469,4 +454,10 @@ fun GoalInputField(label: String, value: String, onValueChange: (String) -> Unit
             unfocusedLabelColor = TextLightGrey
         )
     )
+}
+
+fun getDisplayDate(): String {
+    val calendar = Calendar.getInstance()
+    val formatter = SimpleDateFormat("EEEE, MMMM d", Locale.ENGLISH)
+    return formatter.format(calendar.time)
 }

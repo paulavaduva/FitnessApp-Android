@@ -1,9 +1,13 @@
 package com.example.fitnessapp
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -23,16 +27,19 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.material3.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnessapp.data.MealDatabase
 import com.example.fitnessapp.viewmodel.MealViewModel
 import com.example.fitnessapp.viewmodel.MealViewModelFactory
 import com.example.fitnessapp.ui.theme.*
+import com.example.fitnessapp.viewmodel.DailyActivityViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +47,36 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FitnessAppTheme {
+                RequestActivityPermission()
                 MainScreen()
+            }
+        }
+    }
+}
+
+@Composable
+fun RequestActivityPermission() {
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            println("Permission Granted")
+        } else {
+            println("Permission Denied")
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val permissionCheck = ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACTIVITY_RECOGNITION
+            )
+
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                launcher.launch(android.Manifest.permission.ACTIVITY_RECOGNITION)
             }
         }
     }
@@ -56,6 +92,15 @@ fun MainScreen() {
     val database = remember {
         MealDatabase.getDatabase(context, scope)
     }
+
+    val dailyVM: DailyActivityViewModel = viewModel(
+        factory = DailyActivityViewModel.DailyActivityViewModelFactory(
+            goalDao = database.goalDao(),
+            stepDao = database.stepDao(),
+            context = context
+        )
+    )
+
     val mealViewModel: MealViewModel = viewModel(
         factory = MealViewModelFactory(
             database.mealDao(),
@@ -108,7 +153,7 @@ fun MainScreen() {
             startDestination = Screen.Overview.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Overview.route) { OverviewScreen(viewModel = mealViewModel) }
+            composable(Screen.Overview.route) { OverviewScreen(dailyVM = dailyVM, viewModel = mealViewModel) }
             composable(Screen.Diary.route) { DiaryScreen(viewModel = mealViewModel) }
             composable(Screen.Statistics.route) { StatisticsScreen() }
             composable(Screen.Profile.route) { ProfileScreen() }
