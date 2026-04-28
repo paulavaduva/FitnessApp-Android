@@ -24,6 +24,7 @@ import com.example.fitnessapp.data.GoalDao
 import com.example.fitnessapp.data.GoalEntity
 import com.example.fitnessapp.data.StepDao
 import com.example.fitnessapp.data.StepEntity
+import com.example.fitnessapp.data.WaterDao
 import kotlinx.coroutines.launch
 
 class DailyActivityViewModel(

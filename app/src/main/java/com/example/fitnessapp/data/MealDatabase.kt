@@ -27,7 +27,7 @@ abstract class MealDatabase : RoomDatabase() {
                     MealDatabase::class.java,
                     "fitness_database"
                 )
-                    .addCallback(FoodDatabaseCallback(scope))
+                    .addCallback(FoodDatabaseCallback(context, scope))
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it }
@@ -36,12 +36,13 @@ abstract class MealDatabase : RoomDatabase() {
     }
 
     private class FoodDatabaseCallback(
+        private val context: Context,
         private val scope: kotlinx.coroutines.CoroutineScope
     ) : RoomDatabase.Callback() {
         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
             super.onCreate(db)
-            Instance?.let { database ->
                 scope.launch {
+                    val database = getDatabase(context, scope)
                     val foodDao = database.foodDao()
                     foodDao.insertAll(listOf(
                         FoodEntity(name = "Apple", calories = 52.0, protein = 0.3, carbs = 14.0, fat = 0.2),
@@ -50,8 +51,9 @@ abstract class MealDatabase : RoomDatabase() {
                         FoodEntity(name = "Egg (1 piece)", calories = 70.0, protein = 6.0, carbs = 0.0, fat = 5.0),
                         FoodEntity(name = "Rice (100g)", calories = 130.0, protein = 2.7, carbs = 28.0, fat = 0.3)
                     ))
+                    val goalDao = database.goalDao()
+                    goalDao.upsertGoals(GoalEntity(id = "current_goals"))
                 }
             }
         }
     }
-}
