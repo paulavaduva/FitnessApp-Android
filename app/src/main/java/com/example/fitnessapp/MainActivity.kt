@@ -97,6 +97,7 @@ fun MainScreen() {
         factory = DailyActivityViewModel.DailyActivityViewModelFactory(
             goalDao = database.goalDao(),
             stepDao = database.stepDao(),
+            waterDao = database.waterDao(),
             context = context
         )
     )
