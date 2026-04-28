@@ -1,19 +1,41 @@
 package com.example.fitnessapp.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.fitnessapp.data.MealDatabase
+import com.example.fitnessapp.data.UserEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-class ProfileViewModel : ViewModel() {
-    var heightCm by mutableStateOf("174")
-    var weightKg by mutableStateOf("65")
-    var age by mutableStateOf("22")
+class ProfileViewModel(application: Application) : AndroidViewModel(application) {
+    private val userDao = MealDatabase.getDatabase(application, viewModelScope).userDao()
+    val userProfile = userDao.getUserProfile()
+    fun saveProfile() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updatedUser = UserEntity(
+                id = 1,
+                name = userName,
+                height = heightCm,
+                weight = weightKg,
+                age = age,
+                gender = gender
+            )
+            userDao.insertProfile(updatedUser)
+        }
+    }
+    var heightCm by mutableStateOf("")
+    var weightKg by mutableStateOf("")
+    var age by mutableStateOf("")
 
-    var gender by mutableStateOf("Female")
-    var userName by mutableStateOf("Paula")
+    var gender by mutableStateOf("")
+    var userName by mutableStateOf("")
 
     val bmiValue: Double
         get() {
@@ -43,10 +65,4 @@ class ProfileViewModel : ViewModel() {
             } else 0
         }
 
-    fun updateProfile(newHeight: String, newWeight: String, newAge: String, newGender: String) {
-        heightCm = newHeight
-        weightKg = newWeight
-        age = newAge
-        gender = newGender
-    }
 }

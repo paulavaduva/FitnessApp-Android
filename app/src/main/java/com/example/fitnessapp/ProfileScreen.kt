@@ -30,6 +30,17 @@ import com.example.fitnessapp.viewmodel.ProfileViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
+    val userFromDb by profileViewModel.userProfile.collectAsState(initial = null)
+    LaunchedEffect(userFromDb) {
+        userFromDb?.let {
+            profileViewModel.userName = it.name
+            profileViewModel.heightCm = it.height
+            profileViewModel.weightKg = it.weight
+            profileViewModel.age = it.age
+            profileViewModel.gender = it.gender
+        }
+    }
+
     val backgroundColor = Color(0xFF13151A)
     val surfaceColor = Color(0xFF1E2026)
     val accentGreen = Color(0xFF4ADE80)
@@ -80,6 +91,12 @@ fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 24.dp)
+            )
+            Text(
+                text = profileViewModel.userName.ifEmpty { "New User" },
+                color = accentGreen,
+                fontSize = 18.sp,
+                modifier = Modifier.padding(bottom = 24.dp)
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -146,6 +163,7 @@ fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
     }
 
     if (showEditDialog) {
+        var tempName by remember { mutableStateOf(profileViewModel.userName) }
         var tempHeight by remember { mutableStateOf(profileViewModel.heightCm) }
         var tempWeight by remember { mutableStateOf(profileViewModel.weightKg) }
         var tempAge by remember { mutableStateOf(profileViewModel.age) }
@@ -160,6 +178,7 @@ fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
             title = { Text("Update Profile Info", color = textColor) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProfileTextField("Full Name", tempName, isNumber = false) { tempName = it }
                     ProfileTextField("Height (cm)", tempHeight) { tempHeight = it }
                     ProfileTextField("Weight (kg)", tempWeight) { tempWeight = it }
                     ProfileTextField("Age", tempAge) { tempAge = it }
@@ -204,7 +223,13 @@ fun ProfileScreen(profileViewModel: ProfileViewModel = viewModel()) {
             confirmButton = {
                 Button(
                     onClick = {
-                        profileViewModel.updateProfile(tempHeight, tempWeight, tempAge, tempGender)
+                        profileViewModel.userName = tempName
+                        profileViewModel.heightCm = tempHeight
+                        profileViewModel.weightKg = tempWeight
+                        profileViewModel.age = tempAge
+                        profileViewModel.gender = tempGender
+
+                        profileViewModel.saveProfile()
                         showEditDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = accentGreen)
@@ -252,12 +277,14 @@ fun LargeStatCard(title: String, value: String, subtitle: String, icon: ImageVec
 }
 
 @Composable
-fun ProfileTextField(label: String, value: String, onValueChange: (String) -> Unit) {
+fun ProfileTextField(label: String, value: String, isNumber: Boolean = true, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (isNumber) KeyboardType.Number else KeyboardType.Text
+        ),
         singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = Color.White,
