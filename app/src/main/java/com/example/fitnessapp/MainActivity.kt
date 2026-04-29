@@ -1,5 +1,11 @@
 package com.example.fitnessapp
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import androidx.work.*
+import java.util.concurrent.TimeUnit
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -35,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnessapp.data.MealDatabase
@@ -50,6 +57,10 @@ import kotlinx.coroutines.CoroutineScope
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        createNotificationChannel()
+        setupBackgroundWork()
+
         enableEdgeToEdge()
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACTIVITY_RECOGNITION)
             == PackageManager.PERMISSION_GRANTED) {
@@ -59,6 +70,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             FitnessAppTheme {
                 RequestActivityPermission(onPermissionGranted = { startStepCounterService() })
+                RequestNotificationPermission()
                 MainScreen(externalScope = appScope)
             }
         }
@@ -69,6 +81,53 @@ class MainActivity : ComponentActivity() {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)
+        }
+    }
+
+    private fun setupBackgroundWork() {
+        val workManager = WorkManager.getInstance(this)
+
+        val waterData = Data.Builder()
+            .putString("TYPE", "WATER")
+            .build()
+
+        val waterRequest = PeriodicWorkRequestBuilder<FitnessReminderWorker>(3, TimeUnit.HOURS)
+            .setInputData(waterData)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .build()
+            )
+            .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            "WaterReminderWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            waterRequest
+        )
+
+        val stepData = Data.Builder().putString("TYPE", "STEPS").build()
+        val stepRequest = PeriodicWorkRequestBuilder<FitnessReminderWorker>(4, TimeUnit.HOURS)
+            .setInputData(stepData)
+            .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            "StepWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            stepRequest
+        )
+    }
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Fitness Reminders"
+            val descriptionText = "Notificări pentru obiective"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel("FITNESS_NOTIF_CH", name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
         }
     }
 }
@@ -92,6 +151,34 @@ fun RequestActivityPermission(onPermissionGranted: () -> Unit) {
             }
         } else {
             onPermissionGranted()
+        }
+    }
+}
+
+@Composable
+fun RequestNotificationPermission() {
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            println("Notification Permission Granted")
+        } else {
+            println("Notification Permission Denied")
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permissionCheck = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 }
