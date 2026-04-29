@@ -1,5 +1,6 @@
 package com.example.fitnessapp
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -34,63 +35,76 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnessapp.data.MealDatabase
+import com.example.fitnessapp.services.StepCounterService
 import com.example.fitnessapp.viewmodel.MealViewModel
 import com.example.fitnessapp.viewmodel.MealViewModelFactory
 import com.example.fitnessapp.ui.theme.*
 import com.example.fitnessapp.viewmodel.DailyActivityViewModel
+import com.example.fitnessapp.viewmodel.StatisticsViewModel
+import com.example.fitnessapp.viewmodel.StatisticsViewModelFactory
+import kotlinx.coroutines.CoroutineScope
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACTIVITY_RECOGNITION)
+            == PackageManager.PERMISSION_GRANTED) {
+            startStepCounterService()
+        }
+        val appScope = lifecycleScope
         setContent {
             FitnessAppTheme {
-                RequestActivityPermission()
-                MainScreen()
+                RequestActivityPermission(onPermissionGranted = { startStepCounterService() })
+                MainScreen(externalScope = appScope)
             }
+        }
+    }
+    private fun startStepCounterService() {
+        val serviceIntent = Intent(this, StepCounterService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
         }
     }
 }
 
 @Composable
-fun RequestActivityPermission() {
+fun RequestActivityPermission(onPermissionGranted: () -> Unit) {
     val context = LocalContext.current
-
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            println("Permission Granted")
-        } else {
-            println("Permission Denied")
+            onPermissionGranted()
         }
     }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val permissionCheck = ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.ACTIVITY_RECOGNITION
-            )
-
-            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACTIVITY_RECOGNITION)
+                != PackageManager.PERMISSION_GRANTED) {
                 launcher.launch(android.Manifest.permission.ACTIVITY_RECOGNITION)
             }
+        } else {
+            onPermissionGranted()
         }
     }
 }
 
 //@Preview
 @Composable
-fun MainScreen() {
+fun MainScreen(externalScope: CoroutineScope) {
     val navController = rememberNavController()
 
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    //val scope = rememberCoroutineScope()
     val database = remember {
-        MealDatabase.getDatabase(context, scope)
+        MealDatabase.getDatabase(context, externalScope)
     }
 
     val dailyVM: DailyActivityViewModel = viewModel(
@@ -99,6 +113,14 @@ fun MainScreen() {
             stepDao = database.stepDao(),
             waterDao = database.waterDao(),
             context = context
+        )
+    )
+
+    val statsVM: StatisticsViewModel = viewModel(
+        factory = StatisticsViewModelFactory(
+            stepDao = database.stepDao(),
+            mealDao = database.mealDao(),
+            goalDao = database.goalDao()
         )
     )
 
@@ -156,7 +178,7 @@ fun MainScreen() {
         ) {
             composable(Screen.Overview.route) { OverviewScreen(dailyVM = dailyVM, viewModel = mealViewModel) }
             composable(Screen.Diary.route) { DiaryScreen(viewModel = mealViewModel) }
-            composable(Screen.Statistics.route) { StatisticsScreen() }
+            composable(Screen.Statistics.route) { StatisticsScreen(statsVM = statsVM) }
             composable(Screen.Profile.route) { ProfileScreen() }
         }
     }
